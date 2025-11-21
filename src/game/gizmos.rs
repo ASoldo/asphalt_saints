@@ -1,10 +1,7 @@
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
-use crate::game::{
-    camera::TopDownCamera,
-    player::{Player, PlayerController, PlayerFacing},
-};
+use crate::game::player::{Player, PlayerController, PlayerFacing};
 
 pub struct GizmoHelpersPlugin;
 
@@ -36,7 +33,7 @@ fn draw_world_gizmos(mut gizmos: Gizmos) {
         } else {
             Color::srgb(0.18, 0.18, 0.2)
         };
-        let height = 0.05;
+        let height = 0.1;
         gizmos.line(
             Vec3::new(p, height, -span as f32 * 2.0),
             Vec3::new(p, height, span as f32 * 2.0),
@@ -61,7 +58,6 @@ fn draw_player_gizmos(
         ),
         With<Player>,
     >,
-    camera_query: Query<&GlobalTransform, With<TopDownCamera>>,
 ) {
     let Ok((player_tx, linear_velocity, facing, controller)) = player_query.single() else {
         return;
@@ -77,18 +73,35 @@ fn draw_player_gizmos(
         Color::srgb(0.32, 0.16, 0.6).with_alpha(0.1),
     );
 
-    // Facing arrow.
+    // Facing arrow and vision cone (90 deg).
     let yaw = facing.map(|f| f.yaw).unwrap_or(0.0);
     let facing_dir = Quat::from_rotation_y(yaw) * Vec3::NEG_Z;
+    let vision_origin = pos + Vec3::Y * 0.1;
+    let vision_len = 6.0;
+    let half_angle = std::f32::consts::FRAC_PI_4;
+    let left_dir = Quat::from_rotation_y(yaw + half_angle) * Vec3::NEG_Z;
+    let right_dir = Quat::from_rotation_y(yaw - half_angle) * Vec3::NEG_Z;
+
     gizmos.arrow(
-        pos + Vec3::Y * 0.1,
-        pos + Vec3::Y * 0.1 + facing_dir * 2.0,
+        vision_origin,
+        vision_origin + facing_dir * vision_len,
         Color::srgb(1.0, 0.8, 0.2),
     );
+    gizmos.arrow(
+        vision_origin,
+        vision_origin + left_dir * vision_len,
+        Color::srgb(0.9, 0.6, 0.2),
+    );
+    gizmos.arrow(
+        vision_origin,
+        vision_origin + right_dir * vision_len,
+        Color::srgb(0.9, 0.6, 0.2),
+    );
 
-    // Velocity vector (planar).
+    // Velocity vector (planar), clamped to the vision length.
     if let Some(vel) = linear_velocity {
         let planar = Vec3::new(vel.x, 0.0, vel.z);
+        let planar = planar.clamp_length_max(vision_len);
         gizmos.arrow(
             pos + Vec3::Y * 0.05,
             pos + Vec3::Y * 0.05 + planar,
@@ -96,4 +109,15 @@ fn draw_player_gizmos(
         );
     }
 
+    // Hearing radius.
+    let hear_radius = 6.0;
+    let hear_iso = Isometry3d::new(
+        Vec3::new(pos.x, 0.1, pos.z),
+        Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+    );
+    gizmos.circle(
+        hear_iso,
+        hear_radius,
+        Color::srgb(0.3, 0.8, 0.7).with_alpha(0.4),
+    );
 }

@@ -96,12 +96,4 @@ fn draw_player_gizmos(
         );
     }
 
-    // Line to camera eye for follow debugging.
-    if let Ok(cam_tx) = camera_query.single() {
-        gizmos.line(
-            pos + Vec3::Y * 0.2,
-            cam_tx.translation(),
-            Color::srgb(0.55, 0.55, 1.0),
-        );
-    }
 }

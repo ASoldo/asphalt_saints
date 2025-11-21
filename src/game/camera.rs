@@ -17,7 +17,7 @@ pub struct TopDownCameraConfig {
 impl Default for TopDownCameraConfig {
     fn default() -> Self {
         Self {
-            height: 22.0,
+            height: 44.0,
             pitch_radians: 90.0_f32.to_radians(),
             damping: 8.0,
             zoom_step: 2.0,

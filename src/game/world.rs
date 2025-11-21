@@ -81,8 +81,7 @@ fn spawn_world(
             config.ground_height * 0.5,
             config.ground_size.y * 0.5,
         ),
-        Friction::new(0.2),
-        // center slightly below so the top sits at y=0
+        Friction::new(0.1),
         Transform::from_xyz(0.0, -config.ground_height * 0.5, 0.0),
         Name::new("Ground"),
     ));
@@ -102,11 +101,11 @@ fn spawn_world(
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5),
             Mass(45.0),
-            LinearDamping(0.4),
-            AngularDamping(0.6),
+            LinearDamping(0.0),
+            AngularDamping(0.1),
             Mesh3d(cube_mesh.clone()),
             MeshMaterial3d(cube_mat.clone()),
-            Transform::from_xyz(x, 1.2, z),
+            Transform::from_xyz(x, 2.0, z),
             Name::new(format!("Crate {i}")),
         ));
     }

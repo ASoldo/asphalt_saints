@@ -71,17 +71,16 @@ fn spawn_player(
         controller,
         RigidBody::Dynamic,
         Collider::sphere(controller.radius),
-        Friction::new(0.6),
+        Friction::new(0.02),
         Mass(110.0),
-        LinearDamping(0.3),
-        AngularDamping(0.8),
+        LinearDamping(0.0),
+        AngularDamping(0.0),
         LockedAxes::new().lock_rotation_x().lock_rotation_z(),
         Transform::from_xyz(0.0, 1.2, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
         GlobalTransform::IDENTITY,
     ));
 
     player.insert((
-        MaxLinearSpeed(25.0),
         Health::new(150.0),
         PlayerFacing { yaw: 0.0 },
         Name::new("Player"),
@@ -131,31 +130,8 @@ fn drive_player(
     };
 
     let mut planar = Vec3::new(velocity.x, 0.0, velocity.z);
-    // Thrust forward/backward.
+    // Thrust forward/backward without drag/braking.
     planar += forward_dir * (forward_input * config.acceleration * delta);
-
-    // Brake when no input.
-    if forward_input.abs() < 0.01 {
-        let speed = planar.length();
-        let new_speed = (speed - config.braking * delta).max(0.0);
-        planar = if speed > 0.0 {
-            planar.normalize() * new_speed
-        } else {
-            planar
-        };
-    }
-
-    // Bleed sideways drift to keep a planted feel.
-    let lateral = planar - forward_dir * planar.dot(forward_dir);
-    planar -= lateral * (1.0 - (-config.lateral_damping * delta).exp());
-
-    // Apply mild drag to prevent runaway speed.
-    planar *= (1.0 - config.drag * delta).max(0.0);
-
-    // Clamp to the allowed top speed.
-    if planar.length_squared() > max_speed * max_speed {
-        planar = planar.normalize() * max_speed;
-    }
-
+    planar = planar.clamp_length_max(max_speed);
     velocity.0 = Vec3::new(planar.x, velocity.y, planar.z);
 }

@@ -24,6 +24,7 @@ pub struct PlayerController {
     pub yaw_lerp_speed: f32,
     pub turn_speed: f32,
     pub lateral_damping: f32,
+    pub jump_speed: f32,
     pub radius: f32,
 }
 
@@ -37,6 +38,7 @@ impl Default for PlayerController {
             yaw_lerp_speed: 12.0,
             turn_speed: 5.6,
             lateral_damping: 10.0,
+            jump_speed: 8.5,
             radius: 0.6,
         }
     }
@@ -106,11 +108,16 @@ fn drive_player(
     time: Res<Time>,
     input: Res<PlayerInput>,
     mut player_query: Query<
-        (&PlayerController, &mut LinearVelocity, &mut PlayerFacing),
+        (
+            &PlayerController,
+            &mut LinearVelocity,
+            &mut PlayerFacing,
+            &Transform,
+        ),
         With<Player>,
     >,
 ) {
-    let Some((config, mut velocity, mut facing)) = player_query.iter_mut().next() else {
+    let Some((config, mut velocity, mut facing, transform)) = player_query.iter_mut().next() else {
         return;
     };
 
@@ -130,24 +137,32 @@ fn drive_player(
         config.walk_speed
     };
 
+    let on_ground = transform.translation.y <= config.radius + 0.05 && velocity.y.abs() < 0.2;
     let mut planar = Vec3::new(velocity.x, 0.0, velocity.z);
-    // Kill sideways drift so the pawn doesn't skate when turning/stopping.
-    let forward_velocity = forward_dir * planar.dot(forward_dir);
-    let lateral_velocity = planar - forward_velocity;
-    let lateral_damp = (1.0 - config.lateral_damping * delta).clamp(0.0, 1.0);
-    planar = forward_velocity + lateral_velocity * lateral_damp;
+    if on_ground {
+        // Kill sideways drift so the pawn doesn't skate when turning/stopping.
+        let forward_velocity = forward_dir * planar.dot(forward_dir);
+        let lateral_velocity = planar - forward_velocity;
+        let lateral_damp = (1.0 - config.lateral_damping * delta).clamp(0.0, 1.0);
+        planar = forward_velocity + lateral_velocity * lateral_damp;
 
-    if forward_input.abs() < 0.001 {
-        // Apply braking when the player lets go of movement.
-        let speed = planar.length();
-        if speed > 0.0 {
-            let new_speed = (speed - config.braking * delta).max(0.0);
-            planar = planar.normalize_or_zero() * new_speed;
+        if forward_input.abs() < 0.001 {
+            // Apply braking when the player lets go of movement.
+            let speed = planar.length();
+            if speed > 0.0 {
+                let new_speed = (speed - config.braking * delta).max(0.0);
+                planar = planar.normalize_or_zero() * new_speed;
+            }
+        } else {
+            planar += forward_dir * (forward_input * config.acceleration * delta);
         }
-    } else {
-        planar += forward_dir * (forward_input * config.acceleration * delta);
     }
 
     planar = planar.clamp_length_max(max_speed);
+
+    if on_ground && input.jump {
+        velocity.y = config.jump_speed;
+    }
+
     velocity.0 = Vec3::new(planar.x, velocity.y, planar.z);
 }

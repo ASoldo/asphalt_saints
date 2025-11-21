@@ -34,12 +34,10 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TopDownCameraConfig>()
-            .add_systems(
-                PostUpdate,
-                (ensure_camera, update_camera_pose, handle_zoom)
-                    .run_if(in_state(GameState::InGame)),
-            );
+        app.init_resource::<TopDownCameraConfig>().add_systems(
+            PostUpdate,
+            (ensure_camera, update_camera_pose, handle_zoom).run_if(in_state(GameState::InGame)),
+        );
     }
 }
 

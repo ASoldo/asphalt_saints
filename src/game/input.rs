@@ -10,6 +10,7 @@ pub struct PlayerInput {
     pub fire_secondary: bool,
     pub sprint: bool,
     pub interact: bool,
+    pub jump: bool,
     pub camera_zoom: f32,
 }
 
@@ -62,6 +63,7 @@ fn gather_player_input(
         fire_secondary: mouse_buttons.pressed(MouseButton::Right),
         sprint: keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight),
         interact: keyboard.just_pressed(KeyCode::KeyE),
+        jump: keyboard.just_pressed(KeyCode::Enter) || keyboard.just_pressed(KeyCode::NumpadEnter),
         camera_zoom,
     };
 }

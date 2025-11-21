@@ -5,6 +5,7 @@ use bevy::prelude::*;
 pub struct PlayerInput {
     pub movement: Vec2,
     pub look_delta: Vec2,
+    pub yaw_input: f32,
     pub fire_primary: bool,
     pub fire_secondary: bool,
     pub sprint: bool,
@@ -27,9 +28,13 @@ fn gather_player_input(
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mut player_input: ResMut<PlayerInput>,
 ) {
-    let forward = keyboard.pressed(KeyCode::KeyW) as i8 as f32 - keyboard.pressed(KeyCode::KeyS) as i8 as f32;
-    let strafe = keyboard.pressed(KeyCode::KeyD) as i8 as f32 - keyboard.pressed(KeyCode::KeyA) as i8 as f32;
-    let movement = Vec2::new(strafe, forward);
+    let forward =
+        keyboard.pressed(KeyCode::KeyW) as i8 as f32 - keyboard.pressed(KeyCode::KeyS) as i8 as f32;
+    let forward_alt = keyboard.pressed(KeyCode::Space) as i8 as f32
+        - keyboard.pressed(KeyCode::Backspace) as i8 as f32;
+    let strafe =
+        keyboard.pressed(KeyCode::KeyD) as i8 as f32 - keyboard.pressed(KeyCode::KeyA) as i8 as f32;
+    let movement = Vec2::new(strafe, forward + forward_alt);
 
     let mut look_delta = Vec2::ZERO;
     for motion in mouse_motion_events.read() {
@@ -51,6 +56,8 @@ fn gather_player_input(
             movement
         },
         look_delta,
+        yaw_input: keyboard.pressed(KeyCode::ArrowLeft) as i8 as f32
+            - keyboard.pressed(KeyCode::ArrowRight) as i8 as f32,
         fire_primary: mouse_buttons.pressed(MouseButton::Left),
         fire_secondary: mouse_buttons.pressed(MouseButton::Right),
         sprint: keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight),

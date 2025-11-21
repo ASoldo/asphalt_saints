@@ -39,6 +39,10 @@ fn pause_time(mut time: ResMut<Time<Virtual>>, mut time_scale: ResMut<TimeScale>
 }
 
 fn resume_time(mut time: ResMut<Time<Virtual>>, time_scale: Res<TimeScale>) {
-    let speed = if time_scale.0 <= f32::EPSILON { 1.0 } else { time_scale.0 };
+    let speed = if time_scale.0 <= f32::EPSILON {
+        1.0
+    } else {
+        time_scale.0
+    };
     time.set_relative_speed(speed);
 }

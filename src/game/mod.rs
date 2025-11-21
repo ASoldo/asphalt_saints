@@ -5,6 +5,7 @@ pub mod combat;
 pub mod core;
 pub mod debug;
 pub mod faction;
+pub mod gizmos;
 pub mod input;
 pub mod mission;
 pub mod physics;
@@ -19,9 +20,9 @@ use bevy_inspector_egui::bevy_egui::EguiPlugin;
 
 use crate::game::{
     ai::AiPlugin, audio::AudioPlugin, camera::CameraPlugin, combat::CombatPlugin, core::CorePlugin,
-    debug::DebugPlugin, faction::FactionPlugin, input::InputPlugin, mission::MissionPlugin,
-    physics::PhysicsPlugin, player::PlayerPlugin, progression::ProgressionPlugin, ui::UiPlugin,
-    vehicle::VehiclePlugin, world::WorldPlugin,
+    debug::DebugPlugin, faction::FactionPlugin, gizmos::GizmoHelpersPlugin, input::InputPlugin,
+    mission::MissionPlugin, physics::PhysicsPlugin, player::PlayerPlugin,
+    progression::ProgressionPlugin, ui::UiPlugin, vehicle::VehiclePlugin, world::WorldPlugin,
 };
 
 pub struct GamePlugin;
@@ -43,6 +44,7 @@ impl Plugin for GamePlugin {
             .add_plugins(FactionPlugin)
             .add_plugins(ProgressionPlugin)
             .add_plugins(AudioPlugin)
+            .add_plugins(GizmoHelpersPlugin)
             .add_plugins(UiPlugin);
     }
 }

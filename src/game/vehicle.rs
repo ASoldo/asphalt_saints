@@ -23,11 +23,16 @@ impl Plugin for VehiclePlugin {
     }
 }
 
-fn apply_vehicle_input(mut query: Query<(&Vehicle, &mut LinearVelocity, &VehicleInput)>, time: Res<Time>) {
+fn apply_vehicle_input(
+    mut query: Query<(&Vehicle, &mut LinearVelocity, &VehicleInput)>,
+    time: Res<Time>,
+) {
     let delta = time.delta_secs();
     for (vehicle, mut velocity, input) in &mut query {
         let target_speed = vehicle.max_speed * input.throttle.clamp(-1.0, 1.0);
-        let blended = velocity.z.lerp(target_speed, (vehicle.acceleration * delta).clamp(0.0, 1.0));
+        let blended = velocity
+            .z
+            .lerp(target_speed, (vehicle.acceleration * delta).clamp(0.0, 1.0));
         velocity.z = blended;
 
         if input.handbrake {

@@ -1,4 +1,5 @@
 use avian3d::prelude::*;
+use bevy::pbr::{MeshMaterial3d, StandardMaterial};
 use bevy::prelude::*;
 
 use crate::game::combat::Health;
@@ -12,22 +13,40 @@ pub struct Player;
 pub struct PlayerPawn;
 
 #[derive(Component)]
+pub struct PlayerVisual;
+
+#[derive(Component, Clone, Copy)]
 pub struct PlayerController {
     pub walk_speed: f32,
     pub sprint_speed: f32,
     pub acceleration: f32,
-    pub deceleration: f32,
+    pub braking: f32,
+    pub yaw_lerp_speed: f32,
+    pub turn_speed: f32,
+    pub lateral_damping: f32,
+    pub drag: f32,
+    pub radius: f32,
 }
 
 impl Default for PlayerController {
     fn default() -> Self {
         Self {
-            walk_speed: 9.5,
-            sprint_speed: 13.0,
-            acceleration: 60.0,
-            deceleration: 30.0,
+            walk_speed: 7.5,
+            sprint_speed: 12.5,
+            acceleration: 30.0,
+            braking: 36.0,
+            yaw_lerp_speed: 12.0,
+            turn_speed: 5.6,
+            lateral_damping: 10.0,
+            drag: 1.5,
+            radius: 0.6,
         }
     }
+}
+
+#[derive(Component, Debug)]
+pub struct PlayerFacing {
+    pub yaw: f32,
 }
 
 pub struct PlayerPlugin;
@@ -39,57 +58,117 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-fn spawn_player(mut commands: Commands) {
-    commands.spawn((
-        Player,
-        PlayerPawn,
-        PlayerController::default(),
-        RigidBody::Dynamic,
-        Collider::capsule(0.6, 0.9),
-        LockedAxes::new().lock_rotation_x().lock_rotation_z(),
-        Mass(110.0),
-        LinearDamping(2.5),
-        AngularDamping(6.0),
-        MaxLinearSpeed(25.0),
-        Transform::from_xyz(0.0, 2.5, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
-        Health::new(150.0),
-        Name::new("Player"),
-    ));
+fn spawn_player(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let controller = PlayerController::default();
+
+    commands
+        .spawn((
+            Player,
+            PlayerPawn,
+            controller,
+            RigidBody::Dynamic,
+            Collider::sphere(controller.radius),
+            Friction::new(0.6),
+            Mass(110.0),
+            LinearDamping(0.3),
+            AngularDamping(0.8),
+            LockedAxes::new().lock_rotation_x().lock_rotation_z(),
+            MaxLinearSpeed(25.0),
+            Transform::from_xyz(0.0, 1.2, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
+            Health::new(150.0),
+            PlayerFacing { yaw: 0.0 },
+            Name::new("Player"),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Mesh3d(meshes.add(Sphere::new(controller.radius).mesh().uv(24, 16))),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::srgb(0.7, 0.18, 0.3),
+                    metallic: 0.15,
+                    perceptual_roughness: 0.5,
+                    ..default()
+                })),
+                Transform::from_xyz(0.0, -0.8, 0.0),
+                PlayerVisual,
+            ));
+        });
 }
 
 fn drive_player(
     time: Res<Time>,
     input: Res<PlayerInput>,
-    mut query: Query<(&PlayerController, &mut LinearVelocity, &mut Transform), With<Player>>,
+    mut player_query: Query<
+        (
+            &PlayerController,
+            &mut LinearVelocity,
+            &mut PlayerFacing,
+            &Children,
+        ),
+        With<Player>,
+    >,
+    mut visuals: Query<&mut Transform, With<PlayerVisual>>,
 ) {
-    let Some((config, mut velocity, mut transform)) = query.iter_mut().next() else {
+    let Some((config, mut velocity, mut facing, children)) = player_query.iter_mut().next() else {
         return;
     };
 
-    // Invert forward so W moves toward -Z (away from camera) in world space.
-    let desired_direction = Vec3::new(input.movement.x, 0.0, -input.movement.y);
+    // GTA2-style: left/right steer, forward/back throttle.
+    let turn_input = (input.movement.x + input.yaw_input).clamp(-1.0, 1.0);
+    let turn_rate = turn_input * config.turn_speed;
+    if turn_rate.abs() > 0.001 {
+        facing.yaw = (facing.yaw + turn_rate * time.delta_secs()).rem_euclid(std::f32::consts::TAU);
+    }
+
+    let delta = time.delta_secs();
+    let forward_input = input.movement.y.clamp(-1.0, 1.0);
+    let forward_dir = Quat::from_rotation_y(facing.yaw) * Vec3::NEG_Z;
     let max_speed = if input.sprint {
         config.sprint_speed
     } else {
         config.walk_speed
     };
 
-    let target_velocity = desired_direction * max_speed;
-    let current_velocity = velocity.0;
-    let current_vertical = velocity.y;
+    let mut planar = Vec3::new(velocity.x, 0.0, velocity.z);
+    // Thrust forward/backward.
+    planar += forward_dir * (forward_input * config.acceleration * delta);
 
-    let delta = time.delta_secs();
-    let accel_rate = if target_velocity.length_squared() > 0.0 {
-        config.acceleration
-    } else {
-        config.deceleration
-    };
+    // Brake when no input.
+    if forward_input.abs() < 0.01 {
+        let speed = planar.length();
+        let new_speed = (speed - config.braking * delta).max(0.0);
+        planar = if speed > 0.0 {
+            planar.normalize() * new_speed
+        } else {
+            planar
+        };
+    }
 
-    let blended = current_velocity.lerp(target_velocity, (accel_rate * delta).clamp(0.0, 1.0));
-    velocity.0 = Vec3::new(blended.x, current_vertical, blended.z);
+    // Bleed sideways drift to keep a planted feel.
+    let lateral = planar - forward_dir * planar.dot(forward_dir);
+    planar -= lateral * (1.0 - (-config.lateral_damping * delta).exp());
 
-    if desired_direction.length_squared() > 0.25 {
-        let facing = Vec3::new(desired_direction.x, 0.0, desired_direction.z).normalize();
-        transform.rotation = transform.rotation.slerp(Quat::from_rotation_y(facing.x.atan2(facing.z)), 0.35);
+    // Apply mild drag to prevent runaway speed.
+    planar *= (1.0 - config.drag * delta).max(0.0);
+
+    // Clamp to the allowed top speed.
+    if planar.length_squared() > max_speed * max_speed {
+        planar = planar.normalize() * max_speed;
+    }
+
+    velocity.0 = Vec3::new(planar.x, velocity.y, planar.z);
+
+    if forward_input.abs() > 0.05 || turn_input.abs() > 0.05 {
+        let yaw = facing.yaw;
+        let yaw_alpha = 1.0 - (-config.yaw_lerp_speed * delta).exp();
+        for child in children {
+            if let Ok(mut t) = visuals.get_mut(*child) {
+                let target_rot = Quat::from_rotation_y(yaw);
+                t.rotation = t.rotation.slerp(target_rot, yaw_alpha.clamp(0.0, 1.0));
+            }
+        }
     }
 }

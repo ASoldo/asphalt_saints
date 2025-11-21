@@ -17,7 +17,7 @@ impl Default for PhysicsConfig {
             gravity: Vec3::new(0.0, -18.0, 0.0),
             substeps: 8,
             length_unit: 1.0,
-            enable_debug_render: true,
+            enable_debug_render: false,
         }
     }
 }
@@ -34,6 +34,7 @@ impl Plugin for PhysicsPlugin {
 
         app.insert_resource(Gravity(gravity))
             .insert_resource(SubstepCount(substeps))
+            .insert_resource(DefaultFriction(Friction::new(0.25)))
             .insert_resource(config);
 
         let plugins = PhysicsPlugins::default().with_length_unit(length_unit);

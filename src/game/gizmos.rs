@@ -15,14 +15,32 @@ impl Plugin for GizmoHelpersPlugin {
 fn configure_gizmos(mut store: ResMut<GizmoConfigStore>) {
     let (config, _) = store.config_mut::<DefaultGizmoConfigGroup>();
     config.line.width = 1.5;
-    config.depth_bias = -0.005;
+    config.depth_bias = 0.0;
 }
 
 fn draw_world_gizmos(mut gizmos: Gizmos) {
-    // Axes at origin
-    gizmos.arrow(Vec3::ZERO, Vec3::X * 5.0, Color::srgb(1.0, 0.1, 0.1));
-    gizmos.arrow(Vec3::ZERO, Vec3::Y * 5.0, Color::srgb(0.1, 1.0, 0.1));
-    gizmos.arrow(Vec3::ZERO, Vec3::Z * 5.0, Color::srgb(0.1, 0.4, 1.0));
+    // Axes at origin (drawn higher-level to stay visible).
+    let axis_root = Vec3::new(0.0, 0.05, 0.0);
+    let x_start = Vec3::new(0.0, 0.025, 0.0);
+    let y_start = axis_root;
+    let z_start = Vec3::new(0.0, 0.025, 0.0);
+    let axis_len = 5.0;
+
+    gizmos.line(
+        x_start,
+        x_start + Vec3::new(axis_len, 0.0, 0.0),
+        Color::srgb(1.0, 0.1, 0.1),
+    );
+    gizmos.line(
+        y_start,
+        y_start + Vec3::new(0.0, axis_len, 0.0),
+        Color::srgb(0.1, 1.0, 0.1),
+    );
+    gizmos.line(
+        z_start,
+        z_start + Vec3::new(0.0, 0.0, axis_len),
+        Color::srgb(0.1, 0.4, 1.0),
+    );
 
     // Simple ground grid for orientation
     let span = 30;
@@ -33,7 +51,7 @@ fn draw_world_gizmos(mut gizmos: Gizmos) {
         } else {
             Color::srgb(0.18, 0.18, 0.2)
         };
-        let height = 0.1;
+        let height = 0.025;
         gizmos.line(
             Vec3::new(p, height, -span as f32 * 2.0),
             Vec3::new(p, height, span as f32 * 2.0),

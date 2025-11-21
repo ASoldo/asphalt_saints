@@ -71,11 +71,6 @@ fn draw_player_gizmos(
     let radius = controller.map(|c| c.radius).unwrap_or(0.6);
 
     // Ground footprint and collider outline.
-    let ground_iso = Isometry3d::new(
-        Vec3::new(pos.x, 0.05, pos.z),
-        Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
-    );
-    gizmos.circle(ground_iso, radius * 1.05, Color::srgb(0.8, 0.2, 0.35));
     gizmos.sphere(
         Isometry3d::from_translation(pos),
         radius,

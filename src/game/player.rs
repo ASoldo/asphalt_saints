@@ -65,54 +65,52 @@ fn spawn_player(
 ) {
     let controller = PlayerController::default();
 
-    commands
-        .spawn((
-            Player,
-            PlayerPawn,
-            controller,
-            RigidBody::Dynamic,
-            Collider::sphere(controller.radius),
-            Friction::new(0.6),
-            Mass(110.0),
-            LinearDamping(0.3),
-            AngularDamping(0.8),
-            LockedAxes::new().lock_rotation_x().lock_rotation_z(),
-            MaxLinearSpeed(25.0),
-            Transform::from_xyz(0.0, 1.2, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
-            Health::new(150.0),
-            PlayerFacing { yaw: 0.0 },
-            Name::new("Player"),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Mesh3d(meshes.add(Sphere::new(controller.radius).mesh().uv(24, 16))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.7, 0.18, 0.3),
-                    metallic: 0.15,
-                    perceptual_roughness: 0.5,
-                    ..default()
-                })),
-                Transform::from_xyz(0.0, -0.8, 0.0),
-                PlayerVisual,
-            ));
-        });
+    let mut player = commands.spawn((
+        Player,
+        PlayerPawn,
+        controller,
+        RigidBody::Dynamic,
+        Collider::sphere(controller.radius),
+        Friction::new(0.6),
+        Mass(110.0),
+        LinearDamping(0.3),
+        AngularDamping(0.8),
+        LockedAxes::new().lock_rotation_x().lock_rotation_z(),
+        Transform::from_xyz(0.0, 1.2, 0.0).with_rotation(Quat::from_rotation_y(0.0)),
+        GlobalTransform::IDENTITY,
+    ));
+
+    player.insert((
+        MaxLinearSpeed(25.0),
+        Health::new(150.0),
+        PlayerFacing { yaw: 0.0 },
+        Name::new("Player"),
+    ));
+
+    player.with_children(|parent| {
+        parent.spawn((
+            // Render-only mesh; keep colliders on the parent body.
+            Mesh3d(meshes.add(Sphere::new(controller.radius).mesh().uv(24, 16))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgb(0.7, 0.18, 0.3),
+                metallic: 0.15,
+                perceptual_roughness: 0.5,
+                ..default()
+            })),
+            Transform::IDENTITY,
+            GlobalTransform::IDENTITY,
+            PlayerVisual,
+            Name::new("PlayerVisualMesh"),
+        ));
+    });
 }
 
 fn drive_player(
     time: Res<Time>,
     input: Res<PlayerInput>,
-    mut player_query: Query<
-        (
-            &PlayerController,
-            &mut LinearVelocity,
-            &mut PlayerFacing,
-            &Children,
-        ),
-        With<Player>,
-    >,
-    mut visuals: Query<&mut Transform, With<PlayerVisual>>,
+    mut player_query: Query<(&PlayerController, &mut LinearVelocity, &mut PlayerFacing), With<Player>>,
 ) {
-    let Some((config, mut velocity, mut facing, children)) = player_query.iter_mut().next() else {
+    let Some((config, mut velocity, mut facing)) = player_query.iter_mut().next() else {
         return;
     };
 
@@ -160,15 +158,4 @@ fn drive_player(
     }
 
     velocity.0 = Vec3::new(planar.x, velocity.y, planar.z);
-
-    if forward_input.abs() > 0.05 || turn_input.abs() > 0.05 {
-        let yaw = facing.yaw;
-        let yaw_alpha = 1.0 - (-config.yaw_lerp_speed * delta).exp();
-        for child in children {
-            if let Ok(mut t) = visuals.get_mut(*child) {
-                let target_rot = Quat::from_rotation_y(yaw);
-                t.rotation = t.rotation.slerp(target_rot, yaw_alpha.clamp(0.0, 1.0));
-            }
-        }
-    }
 }
